@@ -224,7 +224,7 @@ const Admin = ({ onLogout }: AdminProps) => {
               className="bg-mithila-blue text-white px-4 py-2 rounded hover:bg-mithila-blue/90 transition-colors"
             >
               Upload JSON
-            </button>
+              </button>
           </div>
           <div className="overflow-x-auto mt-4">
             <table className="min-w-full text-sm text-left">
