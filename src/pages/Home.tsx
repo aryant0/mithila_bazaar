@@ -8,7 +8,7 @@ const StoreGallery = () => {
   const images = [
     "/StoreIMG1.jpg",
     "/LOGOS_page-0003.png",
-    "/StoreIMG2.jpg"
+    "/StoreIMG1.jpg"
   ];
   
   return (

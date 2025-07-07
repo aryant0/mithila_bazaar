@@ -1,45 +1,75 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { products, productCategories, Product } from '@/data/products';
-import { ShoppingCart, Star, Tag } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Star, Tag } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Badge } from '@/components/ui/badge';
 import { useProductContext } from '@/contexts/ProductContext';
+import { useCategoryContext } from '@/contexts/CategoryContext'; // Add this import
+import { Item } from '@/models/product';
+
 
 const Products = () => {
-  const { productList } = useProductContext();
+  const { productList, loading: productLoading } = useProductContext();
+  const { categories, loading: catLoading, error: catError } = useCategoryContext();
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>(productList);
+  const [filteredProducts, setFilteredProducts] = useState<Item[]>([]);
   const { addItem } = useCart();
+  const categoryList = ['All', ...categories.map(cat => cat.categoryValueName)];
+  const [isFiltering, setIsFiltering] = useState(false);
 
   const handleCategoryFilter = (category: string) => {
     setSelectedCategory(category);
-    if (category === 'All') {
-      setFilteredProducts(productList);
-    } else {
-      setFilteredProducts(productList.filter(product => product.category === category));
-    }
+    // if (category === 'All') {
+    //   setFilteredProducts(productList);
+    // } else {
+    //   setFilteredProducts(productList.filter(product => product.stock[0]?.cat2 === category));
+    // }
   };
 
   useEffect(() => {
-    if (selectedCategory === 'All') {
+    if (productList && productList.length > 0) {
       setFilteredProducts(productList);
-    } else {
-      setFilteredProducts(productList.filter(product => product.category === selectedCategory));
     }
-  }, [productList, selectedCategory]);
+  }, [productList]);
 
-  const handleAddToCart = (product: Product) => {
+  useEffect(() => {
+    if (!productList || productList.length === 0) return;
+
+    setIsFiltering(true);
+    const timeout = setTimeout(() => {
+      const filtered =
+        selectedCategory === 'All'
+          ? productList
+          : productList.filter(product => product.stock[0]?.cat2 === selectedCategory);
+
+      setFilteredProducts(filtered);
+      setIsFiltering(false);
+    }, 300); // Add slight delay to show the loader if it's quick
+
+    return () => clearTimeout(timeout); // Clean up on rapid changes
+  }, [productList, selectedCategory]);
+  //   const filtered =
+  //     selectedCategory === 'All'
+  //       ? productList
+  //       : productList.filter((product) => product.stock[0]?.cat2 === selectedCategory);
+
+  //   console.log("Filtered products count:", filtered.length);
+  //   setFilteredProducts(filtered);
+  //   console.log('Updated selectedCategory:', selectedCategory);
+  //   console.log('Available products:', productList.length);
+  // }, [productList, selectedCategory]);
+
+  const handleAddToCart = (product: Item) => {
     addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      unit: product.unit
+      id: product.itemId.toString(),
+      name: product.itemName,
+      price: product.stock[0]?.salePrice ?? product.stock[0]?.mrp ?? 0,
+      image: product.stock[0].cat4,
+      unit: product.stock[0]?.cat5
     });
   };
 
-  const featuredProducts = productList.filter(product => product.featured);
+  //const featuredProducts = productList.filter(product => product.featured);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -61,8 +91,6 @@ const Products = () => {
       }
     }
   };
-
-  const logoImage = '/LOGOS_page-0003.png';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -101,7 +129,7 @@ const Products = () => {
         </div>
       </section>
 
-      {/* Featured Products */}
+      {/* Featured Products
       <section className="section-padding bg-white">
         <div className="container-custom">
           <motion.div
@@ -144,9 +172,8 @@ const Products = () => {
                   <div className="absolute top-4 right-4 bg-yellow-400 text-yellow-900 p-2 rounded-full shadow">
                     <Star size={16} fill="currentColor" />
                   </div>
-                  <div className={`absolute bottom-4 right-4 px-3 py-1 rounded-full text-xs font-semibold ${
-                    product.inStock ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                  }`}>
+                  <div className={`absolute bottom-4 right-4 px-3 py-1 rounded-full text-xs font-semibold ${product.inStock ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
                     {product.inStock ? 'In Stock' : 'Low Stock'}
                   </div>
                 </div>
@@ -182,7 +209,7 @@ const Products = () => {
             ))}
           </motion.div>
         </div>
-      </section>
+      </section> */}
 
       {/* All Products with Filter */}
       <section className="section-padding bg-gray-50">
@@ -206,7 +233,7 @@ const Products = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="flex flex-wrap justify-center gap-4 mb-12"
           >
-            {productCategories.map((category) => (
+            {categoryList.map((category) => (
               <motion.button
                 key={category}
                 onClick={() => handleCategoryFilter(category)}
@@ -224,67 +251,71 @@ const Products = () => {
           </motion.div>
 
           {/* Products Grid */}
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {filteredProducts.map((product) => (
-              <motion.div
-                key={product.id}
-                variants={itemVariants}
-                whileHover={{ scale: 1.03, y: -5, boxShadow: "0 10px 20px rgba(0,0,0,0.08)" }}
-                className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100"
-              >
-                <div className="relative">
-                  <img
-                    src={logoImage}
-                    alt={product.name}
-                    loading="lazy"
-                    className="w-full h-40 object-cover object-center"
-                  />
-                  {product.discount && (
+          {(productLoading || isFiltering) ? (
+            <div className="text-center py-20">
+              <div className="animate-spin h-10 w-10 mx-auto rounded-full border-4 border-t-transparent border-mithila-blue"></div>
+              <p className="mt-4 text-gray-600">Loading products...</p>
+            </div>
+          ) : (
+            <motion.div
+              key={selectedCategory}
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+            >
+              {filteredProducts.map((product) => (
+                <motion.div
+                  key={product.itemId}
+                  variants={itemVariants}
+                  whileHover={{ scale: 1.03, y: -5, boxShadow: "0 10px 20px rgba(0,0,0,0.08)" }}
+                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100"
+                >
+                  <div className="relative">
+                    <div className="w-16 h-16 bg-rose-100 rounded-md flex items-center justify-center">
+                      <ShoppingBag className="w-6 h-6 text-rose-600" />
+                    </div>
+                    {/* {product.discount && (
                     <Badge className="absolute top-2 left-2 bg-mithila-orange text-white text-xs font-semibold px-2 py-0.5 rounded-full">
                       {product.discount}% OFF
                     </Badge>
-                  )}
-                  <div className={`absolute top-2 right-2 w-4 h-4 rounded-full shadow ${
-                    product.inStock ? 'bg-green-500' : 'bg-red-500'
-                  }`}></div>
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-gray-900 mb-1 text-lg">{product.name}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{product.unit}</p>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xl font-bold text-mithila-blue">₹{product.price}</span>
-                      {product.originalPrice && (
-                        <span className="text-gray-500 line-through text-sm ml-1">₹{product.originalPrice}</span>
-                      )}
-                    </div>
-                    <motion.button
-                      onClick={() => handleAddToCart(product)}
-                      disabled={!product.inStock}
-                      className={`p-2.5 rounded-lg transition-all duration-300 shadow-sm
-                        ${product.inStock
-                          ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-90'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      whileHover={product.inStock ? { scale: 1.1 } : {}}
-                      whileTap={product.inStock ? { scale: 0.9 } : {}}
-                    >
-                      <ShoppingCart size={18} />
-                    </motion.button>
+                  )} */}
+                    <div className={`absolute top-2 right-2 w-4 h-4 rounded-full shadow ${product.stock[0].stock > 0 ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
                   </div>
-                  <p>ID: {product.id}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-gray-900 mb-1 text-lg">{product.itemName}</h3>
+                    <p className="text-sm text-gray-600 mb-3">{product.stock[0]?.cat5}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-xl font-bold text-mithila-blue">₹{product.stock[0]?.salePrice}</span>
+                        {(product.stock[0]?.mrp && product.stock[0]?.mrp < product.stock[0]?.salePrice) && (
+                          <span className="text-gray-500 line-through text-sm ml-1">₹{product.stock[0]?.mrp}</span>
+                        )}
+                      </div>
+                      <motion.button
+                        onClick={() => handleAddToCart(product)}
+                        disabled={product.stock[0].stock === 0}
+                        className={`p-2.5 rounded-lg transition-all duration-300 shadow-sm
+                        ${product.stock[0]?.stock > 0
+                            ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-90'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          }`}
+                        whileHover={product.stock[0]?.stock > 0 ? { scale: 1.1 } : {}}
+                        whileTap={product.stock[0]?.stock > 0 ? { scale: 0.9 } : {}}
+                      >
+                        <ShoppingCart size={18} />
+                      </motion.button>
+                    </div>
+                    <p>ID: {product.itemId}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
 
-          {filteredProducts.length === 0 && (
+          {!(productLoading || isFiltering) && filteredProducts.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -295,6 +326,7 @@ const Products = () => {
               <p className="text-xl text-gray-600">No products found in this category. Try another filter!</p>
             </motion.div>
           )}
+
         </div>
       </section>
     </div>
