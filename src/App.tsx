@@ -22,7 +22,6 @@ import ProtectedAdmin from "./components/ProtectedAdmin";
 import NotFound from "./pages/NotFound";
 import { ProductProvider } from '@/contexts/ProductContext';
 import { CategoryProvider } from "@/contexts/CategoryContext";
-import { incrementVisitorCount } from './pages/Admin';
 
 const queryClient = new QueryClient();
 
@@ -43,7 +42,7 @@ const App = () => {
     }, 2500);
 
     // Increment visitor count on app load
-    incrementVisitorCount();
+    // Remove: incrementVisitorCount();
 
     return () => clearTimeout(timer);
   }, []);
@@ -72,7 +71,6 @@ const App = () => {
                       <Route path="/checkout" element={<Checkout />} />
                       <Route path="/order-success" element={<OrderSuccess />} />
                       <Route path="/contact" element={<Contact />} />
-                      <Route path="/admin" element={<ProtectedAdmin />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </main>

@@ -4,24 +4,41 @@ import { ProductResponse } from "@/models/product";
 const BASE_URL = "/api/items";
 const AUTH_TOKEN = import.meta.env.VITE_AUTH_TOKEN;
 
-export const getProducts = async (): Promise<ProductResponse> => {
-  const fields = [
-    "itemId", "itemName", "shortName", "description",
-    "mrp", "salePrice", "stock", "cat1", "cat2", "cat3", "cat4", "cat5"
-  ].join(",");
+// MOCK DATA START
+const mockProducts = Array.from({ length: 32 }, (_, i) => ({
+  itemId: i + 1,
+  itemName: `Mock Product ${i + 1}`,
+  shortName: `Mock${i + 1}`,
+  description: `This is a description for mock product ${i + 1}.`,
+  stock: {
+    mrp: 100 + i * 10,
+    salePrice: 80 + i * 8,
+    stock: 10 + i,
+    cat1: 'Department',
+    cat2: 'Category',
+    cat3: 'SubCategory',
+    cat4: 'Brand',
+    cat5: 'Size',
+  },
+}));
 
-  const url = `${BASE_URL}?fields=${fields}&limit=20000&q=stock>=0.0000`;
+function getMockProducts({ page = 1, limit = 8 }) {
+  const total = mockProducts.length;
+  const total_pages = Math.ceil(total / limit);
+  const start = (page - 1) * limit;
+  const end = start + limit;
+  return Promise.resolve({
+    items: mockProducts.slice(start, end),
+    count: mockProducts.slice(start, end).length,
+    total_records: total,
+    current_page: page,
+    per_page: limit,
+    total_pages,
+  });
+}
+// MOCK DATA END
 
-  try {
-    const response = await axios.get<ProductResponse>(url, {
-      headers: {
-        "X-Auth-Token": AUTH_TOKEN,
-      },
-    });
-
-    return response.data;
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    throw new Error("Failed to fetch products. Please try again later.");
-  }
+export const getProducts = async (params = {}) => {
+  // Always use mock for now
+  return getMockProducts(params);
 };

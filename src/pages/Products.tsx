@@ -1,73 +1,78 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, ShoppingCart, Star, Tag } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Star, Tag, Search, List } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { Badge } from '@/components/ui/badge';
 import { useProductContext } from '@/contexts/ProductContext';
-import { useCategoryContext } from '@/contexts/CategoryContext'; // Add this import
+import { getProducts } from '@/services/productServices';
+import { getCategoriesByCatName } from '@/services/categoryServices';
+import { CategoryValue } from '@/models/category';
+import { ProductResponse } from '@/models/product';
 import { Item } from '@/models/product';
 
 
 const Products = () => {
-  const { productList, loading: productLoading } = useProductContext();
-  const { categories, loading: catLoading, error: catError } = useCategoryContext();
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [filteredProducts, setFilteredProducts] = useState<Item[]>([]);
   const { addItem } = useCart();
-  const categoryList = ['All', ...categories.map(cat => cat.categoryValueName)];
-  const [isFiltering, setIsFiltering] = useState(false);
+  const [products, setProducts] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<CategoryValue[]>([]);
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [perPage, setPerPage] = useState(8); // default to desktop
 
-  const handleCategoryFilter = (category: string) => {
-    setSelectedCategory(category);
-    // if (category === 'All') {
-    //   setFilteredProducts(productList);
-    // } else {
-    //   setFilteredProducts(productList.filter(product => product.stock[0]?.cat2 === category));
-    // }
+  // Responsive perPage based on screen size
+  useEffect(() => {
+    function updatePerPage() {
+      if (window.matchMedia('(max-width: 640px)').matches) {
+        setPerPage(4); // mobile
+      } else {
+        setPerPage(8); // desktop/tablet
+      }
+    }
+    updatePerPage();
+    window.addEventListener('resize', updatePerPage);
+    return () => window.removeEventListener('resize', updatePerPage);
+  }, []);
+
+  // Fetch categories on mount
+  useEffect(() => {
+    getCategoriesByCatName('MAIN-CATEGORY').then(res => {
+      setCategories(res.categoryValues || []);
+    });
+  }, []);
+
+  // Fetch products from backend
+  const fetchProducts = async (page = 1) => {
+    setLoading(true);
+    try {
+      const data: ProductResponse = await getProducts({ search, category, page, limit: perPage });
+      setProducts(data.items);
+      setCurrentPage(data.current_page || 1);
+      setTotalPages(data.total_pages || 1);
+    } catch (e) {
+      // Optionally handle error
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (productList && productList.length > 0) {
-      setFilteredProducts(productList);
-    }
-  }, [productList]);
+    fetchProducts(1);
+    // eslint-disable-next-line
+  }, []);
 
-  useEffect(() => {
-    if (!productList || productList.length === 0) return;
-
-    setIsFiltering(true);
-    const timeout = setTimeout(() => {
-      const filtered =
-        selectedCategory === 'All'
-          ? productList
-          : productList.filter(product => product.stock[0]?.cat2 === selectedCategory);
-
-      setFilteredProducts(filtered);
-      setIsFiltering(false);
-    }, 300); // Add slight delay to show the loader if it's quick
-
-    return () => clearTimeout(timeout); // Clean up on rapid changes
-  }, [productList, selectedCategory]);
-  //   const filtered =
-  //     selectedCategory === 'All'
-  //       ? productList
-  //       : productList.filter((product) => product.stock[0]?.cat2 === selectedCategory);
-
-  //   console.log("Filtered products count:", filtered.length);
-  //   setFilteredProducts(filtered);
-  //   console.log('Updated selectedCategory:', selectedCategory);
-  //   console.log('Available products:', productList.length);
-  // }, [productList, selectedCategory]);
-
-  const handleAddToCart = (product: Item) => {
+  // Add-to-cart logic remains the same
+  const handleAddToCart = useCallback((product: Item) => {
     addItem({
       id: product.itemId.toString(),
       name: product.itemName,
-      price: product.stock[0]?.salePrice ?? product.stock[0]?.mrp ?? 0,
-      image: product.stock[0].cat4,
-      unit: product.stock[0]?.cat5
+      price: product.stock.salePrice ?? product.stock.mrp ?? 0,
+      image: product.stock.cat4,
+      unit: product.stock.cat5
     });
-  };
+  }, [addItem]);
 
   //const featuredProducts = productList.filter(product => product.featured);
 
@@ -91,6 +96,45 @@ const Products = () => {
       }
     }
   };
+
+  // Update ProductCard for beautiful square cards
+  const ProductCard = React.memo(({ product, onAddToCart }: { product: Item, onAddToCart: (product: Item) => void }) => (
+    <motion.div
+      key={product.itemId}
+      variants={itemVariants}
+      whileHover={{ scale: 1.05, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
+      className="bg-white rounded-2xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100 flex flex-col justify-between h-64 group hover:shadow-xl"
+    >
+      <div className="flex-1 flex flex-col items-center justify-start w-full px-2 pt-4 pb-2 min-h-0">
+        <div className="w-16 h-16 max-h-16 flex items-center justify-center mb-4 overflow-hidden">
+          <img src="/mbazaar.ico" alt="Product" className="w-12 h-12 object-contain rounded-xl" />
+        </div>
+        <h3 className="font-bold text-gray-900 text-lg text-center mb-1 group-hover:text-mithila-blue transition-colors truncate w-full">{product.itemName}</h3>
+        <p className="text-xs text-gray-500 mb-2 text-center truncate w-full">{product.stock.cat5}</p>
+        <div className="flex items-center justify-center gap-2 mb-2">
+          <span className="text-xl font-bold text-mithila-blue">₹{product.stock.salePrice}</span>
+          {(product.stock.mrp && product.stock.mrp < product.stock.salePrice) && (
+            <span className="text-gray-400 line-through text-sm">₹{product.stock.mrp}</span>
+          )}
+        </div>
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold mb-2 ${product.stock.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{product.stock.stock > 0 ? 'In Stock' : 'Out of Stock'}</span>
+      </div>
+      <div className="px-2 pb-4">
+        <button
+          onClick={() => onAddToCart(product)}
+          disabled={product.stock.stock === 0}
+          className={`w-full py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all duration-200
+            ${product.stock.stock > 0
+              ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-95 shadow'
+              : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+          `}
+        >
+          <ShoppingCart size={18} />
+          Add to Cart
+        </button>
+      </div>
+    </motion.div>
+  ));
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -128,6 +172,46 @@ const Products = () => {
           </motion.div>
         </div>
       </section>
+      {/* Modern, full-width search bar section */}
+      <div className="w-full bg-white rounded-2xl shadow-lg mb-10 px-4 py-6 flex flex-col sm:flex-row items-center gap-4">
+        <div className="relative flex-1 w-full">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <Search size={22} />
+          </span>
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search products..."
+            className="pl-11 pr-4 py-3 border border-gray-300 rounded-lg w-full text-lg focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
+          />
+        </div>
+        <div className="relative w-full sm:w-64 flex items-center">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <List size={22} />
+          </span>
+          <select
+            id="category-select"
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            className="pl-11 pr-4 py-3 border border-gray-300 rounded-lg w-full text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.categoryValueId} value={cat.categoryValueName}>{cat.categoryValueName}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={() => fetchProducts(1)}
+          className="bg-mithila-blue text-white px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-800 transition-colors w-full sm:w-auto text-lg flex items-center justify-center gap-2"
+          disabled={loading}
+          style={{ minWidth: 120 }}
+        >
+          <Search size={22} className="inline-block mr-1" />
+          {loading ? 'Searching...' : 'Search'}
+        </button>
+      </div>
 
       {/* Featured Products
       <section className="section-padding bg-white">
@@ -217,7 +301,6 @@ const Products = () => {
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="text-center mb-12"
           >
@@ -226,96 +309,27 @@ const Products = () => {
           </motion.div>
 
           {/* Category Filter */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="flex flex-wrap justify-center gap-4 mb-12"
-          >
-            {categoryList.map((category) => (
-              <motion.button
-                key={category}
-                onClick={() => handleCategoryFilter(category)}
-                className={`px-7 py-3 rounded-full font-semibold transition-all duration-300 shadow-sm
-                  ${selectedCategory === category
-                    ? 'bg-mithila-blue text-white shadow-md'
-                    : 'bg-white text-gray-700 hover:bg-mithila-blue/10 hover:text-mithila-blue'
-                  }`}
-                whileHover={{ scale: 1.05, boxShadow: selectedCategory !== category ? "0 4px 10px rgba(0,0,0,0.08)" : undefined }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {category}
-              </motion.button>
-            ))}
-          </motion.div>
+          {/* The category button group is removed as per the edit hint */}
 
           {/* Products Grid */}
-          {(productLoading || isFiltering) ? (
+          {(loading) ? (
             <div className="text-center py-20">
               <div className="animate-spin h-10 w-10 mx-auto rounded-full border-4 border-t-transparent border-mithila-blue"></div>
               <p className="mt-4 text-gray-600">Loading products...</p>
             </div>
           ) : (
             <motion.div
-              key={selectedCategory}
+              key={category}
               variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+              className="grid grid-cols-3 lg:grid-cols-6 gap-6"
             >
-              {filteredProducts.map((product) => (
-                <motion.div
-                  key={product.itemId}
-                  variants={itemVariants}
-                  whileHover={{ scale: 1.03, y: -5, boxShadow: "0 10px 20px rgba(0,0,0,0.08)" }}
-                  className="bg-white rounded-xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100"
-                >
-                  <div className="relative">
-                    <div className="w-16 h-16 bg-rose-100 rounded-md flex items-center justify-center">
-                      <ShoppingBag className="w-6 h-6 text-rose-600" />
-                    </div>
-                    {/* {product.discount && (
-                    <Badge className="absolute top-2 left-2 bg-mithila-orange text-white text-xs font-semibold px-2 py-0.5 rounded-full">
-                      {product.discount}% OFF
-                    </Badge>
-                  )} */}
-                    <div className={`absolute top-2 right-2 w-4 h-4 rounded-full shadow ${product.stock[0].stock > 0 ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-bold text-gray-900 mb-1 text-lg">{product.itemName}</h3>
-                    <p className="text-sm text-gray-600 mb-3">{product.stock[0]?.cat5}</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-xl font-bold text-mithila-blue">₹{product.stock[0]?.salePrice}</span>
-                        {(product.stock[0]?.mrp && product.stock[0]?.mrp < product.stock[0]?.salePrice) && (
-                          <span className="text-gray-500 line-through text-sm ml-1">₹{product.stock[0]?.mrp}</span>
-                        )}
-                      </div>
-                      <motion.button
-                        onClick={() => handleAddToCart(product)}
-                        disabled={product.stock[0].stock === 0}
-                        className={`p-2.5 rounded-lg transition-all duration-300 shadow-sm
-                        ${product.stock[0]?.stock > 0
-                            ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-90'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                          }`}
-                        whileHover={product.stock[0]?.stock > 0 ? { scale: 1.1 } : {}}
-                        whileTap={product.stock[0]?.stock > 0 ? { scale: 0.9 } : {}}
-                      >
-                        <ShoppingCart size={18} />
-                      </motion.button>
-                    </div>
-                    <p>ID: {product.itemId}</p>
-                  </div>
-                </motion.div>
+              {products.map((product) => (
+                <ProductCard key={product.itemId} product={product} onAddToCart={handleAddToCart} />
               ))}
             </motion.div>
           )}
 
-          {!(productLoading || isFiltering) && filteredProducts.length === 0 && (
+          {!(loading) && products.length === 0 && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

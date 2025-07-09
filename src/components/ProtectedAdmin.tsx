@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import AdminLogin from './AdminLogin';
-import Admin from '../pages/Admin';
 
 const ProtectedAdmin = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -42,7 +41,7 @@ const ProtectedAdmin = () => {
     return <AdminLogin onLogin={handleLogin} />;
   }
 
-  return <Admin onLogout={handleLogout} />;
+  return null; // Removed Admin onLogout={handleLogout}
 };
 
 export default ProtectedAdmin;
