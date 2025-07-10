@@ -20,20 +20,15 @@ const Products = () => {
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [perPage, setPerPage] = useState(8); // default to desktop
+  const [perPage, setPerPage] = useState(24); // show 24 products per page
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [allProductNames, setAllProductNames] = useState<string[]>([]);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
   // Responsive perPage based on screen size
   useEffect(() => {
-    function updatePerPage() {
-      if (window.matchMedia('(max-width: 640px)').matches) {
-        setPerPage(4); // mobile
-      } else {
-        setPerPage(8); // desktop/tablet
-      }
-    }
-    updatePerPage();
-    window.addEventListener('resize', updatePerPage);
-    return () => window.removeEventListener('resize', updatePerPage);
+    setPerPage(24); // Always show 24 products per page
   }, []);
 
   // Fetch categories on mount
@@ -42,6 +37,55 @@ const Products = () => {
       setCategories(res.categoryValues || []);
     });
   }, []);
+
+  // Fetch all products for suggestions (without pagination)
+  const fetchAllProductsForSuggestions = async () => {
+    try {
+      const data: ProductResponse = await getProducts({ search: '', category: '', page: 1, limit: 1000 });
+      const productNames = data.items.map(item => item.itemName);
+      setAllProductNames(productNames);
+    } catch (e) {
+      console.error('Error fetching products for suggestions:', e);
+    }
+  };
+
+  // Fetch all products on mount for suggestions
+  useEffect(() => {
+    fetchAllProductsForSuggestions();
+  }, []);
+
+  // Generate suggestions based on search input
+  useEffect(() => {
+    if (search.trim().length > 0) {
+      const filteredSuggestions = allProductNames
+        .filter(name => {
+          const searchLower = search.toLowerCase();
+          const nameLower = name.toLowerCase();
+          // Show only exact matches or starts with (more precise)
+          return nameLower === searchLower || nameLower.startsWith(searchLower);
+        })
+        .sort((a, b) => {
+          const searchLower = search.toLowerCase();
+          const aLower = a.toLowerCase();
+          const bLower = b.toLowerCase();
+          
+          // Exact match gets highest priority
+          if (aLower === searchLower) return -1;
+          if (bLower === searchLower) return 1;
+          
+          // Otherwise maintain alphabetical order
+          return aLower.localeCompare(bLower);
+        })
+        .slice(0, 5); // Limit to 5 suggestions
+      setSuggestions(filteredSuggestions);
+      setShowSuggestions(true);
+      setSelectedSuggestionIndex(-1); // Reset selection when suggestions change
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+    }
+  }, [search, allProductNames]);
 
   // Fetch products from backend
   const fetchProducts = async (page = 1) => {
@@ -52,25 +96,107 @@ const Products = () => {
       setCurrentPage(data.current_page || 1);
       setTotalPages(data.total_pages || 1);
     } catch (e) {
+      console.error('Error fetching products:', e);
       // Optionally handle error
     } finally {
       setLoading(false);
     }
   };
 
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchProducts(currentPage);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timeoutId);
+  }, [search, category, perPage, currentPage]);
+
+  // Scroll to top on page change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentPage]);
+
+  // Initial load
   useEffect(() => {
     fetchProducts(1);
     // eslint-disable-next-line
   }, []);
 
+  // Handle search input key press
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
+        // Select the highlighted suggestion
+        handleSuggestionClick(suggestions[selectedSuggestionIndex]);
+      } else {
+        // Perform search with current input
+        setShowSuggestions(false);
+        fetchProducts(1);
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev < suggestions.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev > 0 ? prev - 1 : -1
+      );
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+    }
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: string) => {
+    setSearch(suggestion);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+    setCurrentPage(1);
+    fetchProducts(1); // immediately search for the selected product
+  };
+
+  // Handle search input focus
+  const handleSearchFocus = () => {
+    if (search.trim().length > 0 && suggestions.length > 0) {
+      setShowSuggestions(true);
+    }
+  };
+
+  // Handle search input blur
+  const handleSearchBlur = () => {
+    // Delay hiding suggestions to allow for clicks
+    setTimeout(() => {
+      setShowSuggestions(false);
+      setSelectedSuggestionIndex(-1);
+    }, 200);
+  };
+
+  // Handle category change
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCategory(e.target.value);
+    setCurrentPage(1); // Reset to first page when category changes
+  };
+
+  // Handle search input change
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearch(e.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
+  };
+
   // Add-to-cart logic remains the same
   const handleAddToCart = useCallback((product: Item) => {
+    const availableStock = product.stock.find(s => s.stock > 0);
+    if (!availableStock) return;
     addItem({
       id: product.itemId.toString(),
       name: product.itemName,
-      price: product.stock.salePrice ?? product.stock.mrp ?? 0,
-      image: product.stock.cat4,
-      unit: product.stock.cat5
+      price: availableStock.salePrice ?? availableStock.mrp ?? 0,
+      image: availableStock.cat4,
+      unit: availableStock.cat5
     });
   }, [addItem]);
 
@@ -98,43 +224,58 @@ const Products = () => {
   };
 
   // Update ProductCard for beautiful square cards
-  const ProductCard = React.memo(({ product, onAddToCart }: { product: Item, onAddToCart: (product: Item) => void }) => (
-    <motion.div
-      key={product.itemId}
-      variants={itemVariants}
-      whileHover={{ scale: 1.05, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
-      className="bg-white rounded-2xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100 flex flex-col justify-between h-64 group hover:shadow-xl"
-    >
-      <div className="flex-1 flex flex-col items-center justify-start w-full px-2 pt-4 pb-2 min-h-0">
-        <div className="w-16 h-16 max-h-16 flex items-center justify-center mb-4 overflow-hidden">
-          <img src="/mbazaar.ico" alt="Product" className="w-12 h-12 object-contain rounded-xl" />
-        </div>
-        <h3 className="font-bold text-gray-900 text-lg text-center mb-1 group-hover:text-mithila-blue transition-colors truncate w-full">{product.itemName}</h3>
-        <p className="text-xs text-gray-500 mb-2 text-center truncate w-full">{product.stock.cat5}</p>
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <span className="text-xl font-bold text-mithila-blue">₹{product.stock.salePrice}</span>
-          {(product.stock.mrp && product.stock.mrp < product.stock.salePrice) && (
-            <span className="text-gray-400 line-through text-sm">₹{product.stock.mrp}</span>
+  const ProductCard = React.memo(({ product, onAddToCart }: { product: Item, onAddToCart: (product: Item) => void }) => {
+    const availableStock = product.stock.find(s => s.stock > 0);
+    return (
+      <motion.div
+        key={product.itemId}
+        variants={itemVariants}
+        whileHover={{ scale: 1.05, boxShadow: "0 8px 32px rgba(0,0,0,0.12)" }}
+        className="bg-white rounded-2xl shadow-md overflow-hidden cursor-pointer transition-all duration-300 border border-gray-100 flex flex-col justify-between min-h-[280px] group hover:shadow-xl"
+      >
+        <div className="flex-1 flex flex-col items-center justify-start w-full px-3 pt-4 pb-2">
+          <div className="w-16 h-16 max-h-16 flex items-center justify-center mb-4 overflow-hidden flex-shrink-0">
+            <img src="/mbazaar.ico" alt="Product" className="w-12 h-12 object-contain rounded-xl" />
+          </div>
+          <h3 className="font-bold text-gray-900 text-sm sm:text-base text-center mb-1 group-hover:text-mithila-blue transition-colors w-full leading-tight break-words">{product.itemName}</h3>
+          {availableStock ? (
+            <>
+              <p className="text-xs text-gray-500 mb-2 text-center w-full leading-tight break-words">{availableStock.cat5}</p>
+              <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
+                <span className="text-lg sm:text-xl font-bold text-mithila-blue">₹{availableStock.salePrice}</span>
+                {(availableStock.mrp && availableStock.mrp < availableStock.salePrice) && (
+                  <span className="text-gray-400 line-through text-sm">₹{availableStock.mrp}</span>
+                )}
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold mb-2 bg-green-100 text-green-700">In Stock</span>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-gray-500 mb-2 text-center w-full leading-tight break-words">No variant available</p>
+              <div className="flex items-center justify-center gap-2 mb-2 flex-wrap">
+                <span className="text-lg sm:text-xl font-bold text-mithila-blue">--</span>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold mb-2 bg-red-100 text-red-700">Out of Stock</span>
+            </>
           )}
         </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold mb-2 ${product.stock.stock > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{product.stock.stock > 0 ? 'In Stock' : 'Out of Stock'}</span>
-      </div>
-      <div className="px-2 pb-4">
-        <button
-          onClick={() => onAddToCart(product)}
-          disabled={product.stock.stock === 0}
-          className={`w-full py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all duration-200
-            ${product.stock.stock > 0
-              ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-95 shadow'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-          `}
-        >
-          <ShoppingCart size={18} />
-          Add to Cart
-        </button>
-      </div>
-    </motion.div>
-  ));
+        <div className="px-3 pb-4 flex-shrink-0">
+          <button
+            onClick={() => availableStock && onAddToCart({ ...product, stock: [availableStock] })}
+            disabled={!availableStock}
+            className={`w-full py-2 rounded-lg font-semibold flex items-center justify-center gap-2 transition-all duration-200 text-sm
+              ${availableStock
+                ? 'bg-mithila-orange text-white hover:bg-mithila-orange/90 active:scale-95 shadow'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+            `}
+          >
+            <ShoppingCart size={16} />
+            Add to Cart
+          </button>
+        </div>
+      </motion.div>
+    );
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -173,44 +314,93 @@ const Products = () => {
         </div>
       </section>
       {/* Modern, full-width search bar section */}
-      <div className="w-full bg-white rounded-2xl shadow-lg mb-10 px-4 py-6 flex flex-col sm:flex-row items-center gap-4">
-        <div className="relative flex-1 w-full">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <Search size={22} />
-          </span>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search products..."
-            className="pl-11 pr-4 py-3 border border-gray-300 rounded-lg w-full text-lg focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
-          />
-        </div>
-        <div className="relative w-full sm:w-64 flex items-center">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-            <List size={22} />
-          </span>
-          <select
-            id="category-select"
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            className="pl-11 pr-4 py-3 border border-gray-300 rounded-lg w-full text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
+      <div className="container-custom px-4 sm:px-6 lg:px-8">
+        <div className="w-full bg-white rounded-2xl shadow-lg mb-10 px-4 py-6 flex flex-col sm:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <Search size={20} />
+            </span>
+            <input
+              type="text"
+              value={search}
+              onChange={handleSearchChange}
+              onKeyPress={handleSearchKeyPress}
+              onFocus={handleSearchFocus}
+              onBlur={handleSearchBlur}
+              placeholder="Search products..."
+              className="pl-10 pr-10 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
+            />
+            {search && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setCurrentPage(1);
+                  setShowSuggestions(false);
+                  setSelectedSuggestionIndex(-1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                type="button"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+            
+            {/* Search Suggestions Dropdown */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3
+                      ${index === selectedSuggestionIndex ? 'bg-mithila-blue text-white' : ''}
+                    `}
+                    type="button"
+                  >
+                    <Search size={16} className="text-gray-400 flex-shrink-0" />
+                    <span className="text-gray-700 truncate">{suggestion}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="relative w-full sm:w-64 flex items-center">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <List size={20} />
+            </span>
+            <select
+              id="category-select"
+              value={category}
+              onChange={handleCategoryChange}
+              className="pl-10 pr-4 py-3 border border-gray-300 rounded-lg w-full text-base sm:text-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-mithila-blue bg-gray-50"
+            >
+              <option value="">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat.categoryValueId} value={cat.categoryValueName}>{cat.categoryValueName}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => fetchProducts(1)}
+            className="bg-mithila-blue text-white px-6 sm:px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-800 transition-colors w-full sm:w-auto text-base sm:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+            style={{ minWidth: 120 }}
           >
-            <option value="">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat.categoryValueId} value={cat.categoryValueName}>{cat.categoryValueName}</option>
-            ))}
-          </select>
+            {loading ? (
+              <>
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search size={20} className="inline-block mr-1" />
+                Search
+              </>
+            )}
+          </button>
         </div>
-        <button
-          onClick={() => fetchProducts(1)}
-          className="bg-mithila-blue text-white px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-800 transition-colors w-full sm:w-auto text-lg flex items-center justify-center gap-2"
-          disabled={loading}
-          style={{ minWidth: 120 }}
-        >
-          <Search size={22} className="inline-block mr-1" />
-          {loading ? 'Searching...' : 'Search'}
-        </button>
       </div>
 
       {/* Featured Products
@@ -298,18 +488,21 @@ const Products = () => {
       {/* All Products with Filter */}
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-center mb-12"
-          >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">All Products</h2>
-            <p className="text-xl text-gray-600">Browse by category</p>
-          </motion.div>
-
-          {/* Category Filter */}
-          {/* The category button group is removed as per the edit hint */}
+          {/* Results Counter */}
+          {!loading && search && products.length > 0 && (
+            <div className="mb-6 text-center sm:text-left">
+              <p className="text-gray-600">
+                {`Found ${products.length} product${products.length === 1 ? '' : 's'}`}
+                {search && ` matching "${search}"`}
+                {category && ` in ${category}`}
+              </p>
+              {search && (
+                <p className="text-sm text-gray-500 mt-1">
+                  Showing exact matches and products starting with "{search}"
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Products Grid */}
           {(loading) ? (
@@ -318,15 +511,60 @@ const Products = () => {
               <p className="mt-4 text-gray-600">Loading products...</p>
             </div>
           ) : (
+            <>
             <motion.div
               key={category}
               variants={containerVariants}
-              className="grid grid-cols-3 lg:grid-cols-6 gap-6"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
             >
               {products.map((product) => (
                 <ProductCard key={product.itemId} product={product} onAddToCart={handleAddToCart} />
               ))}
             </motion.div>
+            {/* Pagination Controls */}
+            {!loading && totalPages > 1 && (
+              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                {/* Sliding window of 3 page numbers */}
+                {(() => {
+                  let start = Math.max(1, currentPage - 1);
+                  let end = Math.min(totalPages, start + 2);
+                  // Adjust start if we're at the end
+                  start = Math.max(1, end - 2);
+                  const pages = [];
+                  for (let i = start; i <= end; i++) {
+                    pages.push(i);
+                  }
+                  return pages.map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-2 rounded font-semibold ${
+                        page === currentPage
+                          ? 'bg-mithila-blue text-white'
+                          : 'bg-gray-100 text-gray-700 hover:bg-mithila-blue hover:text-white'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ));
+                })()}
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+            </>
           )}
 
           {!(loading) && products.length === 0 && (
@@ -337,7 +575,12 @@ const Products = () => {
               className="text-center py-12"
             >
               <Tag className="text-gray-400 mx-auto mb-4" size={48} />
-              <p className="text-xl text-gray-600">No products found in this category. Try another filter!</p>
+              <p className="text-xl text-gray-600">
+                {search || category 
+                  ? 'No products found matching your criteria. Try adjusting your search or category filter.'
+                  : 'No products available at the moment.'
+                }
+              </p>
             </motion.div>
           )}
 
