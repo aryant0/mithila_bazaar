@@ -33,7 +33,7 @@ const Products = () => {
 
   // Fetch categories on mount
   useEffect(() => {
-    getCategoriesByCatName('MAIN-CATEGORY').then(res => {
+    getCategoriesByCatName('Cat2').then(res => {
       setCategories(res.categoryValues || []);
     });
   }, []);
