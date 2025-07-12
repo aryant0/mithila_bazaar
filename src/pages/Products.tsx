@@ -1,191 +1,207 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ShoppingBag, ShoppingCart, Star, Tag, Search, List } from 'lucide-react';
+import { ShoppingCart, Tag, Search, List } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
-import { Badge } from '@/components/ui/badge';
-import { useProductContext } from '@/contexts/ProductContext';
 import { getProducts } from '@/services/productServices';
 import { getCategoriesByCatName } from '@/services/categoryServices';
-import { CategoryValue } from '@/models/category';
+import { CategoryResponse, CategoryValue } from '@/models/category';
 import { ProductResponse } from '@/models/product';
 import { Item } from '@/models/product';
 
 
 const Products = () => {
-  const { addItem } = useCart();
-  const [products, setProducts] = useState<Item[]>([]);
+  // Product & category data
   const [categories, setCategories] = useState<CategoryValue[]>([]);
+  const [allProducts, setAllProducts] = useState<Item[]>([]);
+
+  // Search & filter
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [perPage, setPerPage] = useState(24); // show 24 products per page
+
+  // UI state
+  const [loading, setLoading] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Suggestions logic
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [allProductNames, setAllProductNames] = useState<string[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
-  // Responsive perPage based on screen size
-  useEffect(() => {
-    setPerPage(24); // Always show 24 products per page
-  }, []);
+  const { addItem } = useCart();
 
-  // Fetch categories on mount
-  useEffect(() => {
-    getCategoriesByCatName('Cat2').then(res => {
-      setCategories(res.categoryValues || []);
-    });
-  }, []);
+  const DEFAULT_PER_PAGE = 24;
 
-  // Fetch all products for suggestions (without pagination)
-  const fetchAllProductsForSuggestions = async () => {
-    try {
-      const data: ProductResponse = await getProducts({ search: '', category: '', page: 1, limit: 1000 });
-      const productNames = data.items.map(item => item.itemName);
-      setAllProductNames(productNames);
-    } catch (e) {
-      console.error('Error fetching products for suggestions:', e);
-    }
-  };
-
-  // Fetch all products on mount for suggestions
-  useEffect(() => {
-    fetchAllProductsForSuggestions();
-  }, []);
-
-  // Generate suggestions based on search input
-  useEffect(() => {
-    if (search.trim().length > 0) {
-      const filteredSuggestions = allProductNames
-        .filter(name => {
-          const searchLower = search.toLowerCase();
-          const nameLower = name.toLowerCase();
-          // Show only exact matches or starts with (more precise)
-          return nameLower === searchLower || nameLower.startsWith(searchLower);
-        })
-        .sort((a, b) => {
-          const searchLower = search.toLowerCase();
-          const aLower = a.toLowerCase();
-          const bLower = b.toLowerCase();
-          
-          // Exact match gets highest priority
-          if (aLower === searchLower) return -1;
-          if (bLower === searchLower) return 1;
-          
-          // Otherwise maintain alphabetical order
-          return aLower.localeCompare(bLower);
-        })
-        .slice(0, 5); // Limit to 5 suggestions
-      setSuggestions(filteredSuggestions);
-      setShowSuggestions(true);
-      setSelectedSuggestionIndex(-1); // Reset selection when suggestions change
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      setSelectedSuggestionIndex(-1);
-    }
-  }, [search, allProductNames]);
-
-  // Fetch products from backend
-  const fetchProducts = async (page = 1) => {
+// Fetch categories and products on initial mount
+useEffect(() => {
+  const fetchData = async () => {
     setLoading(true);
-    try {
-      const data: ProductResponse = await getProducts({ search, category, page, limit: perPage });
-      setProducts(data.items);
-      setCurrentPage(data.current_page || 1);
-      setTotalPages(data.total_pages || 1);
-    } catch (e) {
-      console.error('Error fetching products:', e);
-      // Optionally handle error
-    } finally {
-      setLoading(false);
-    }
+    await fetchCategories();
+    await fetchProducts();
+    setLoading(false);
   };
+  fetchData();
+}, []);
 
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchProducts(currentPage);
-    }, 500); // 500ms delay
+const fetchCategories = async () => {
+  try {
+    const data: CategoryResponse = await getCategoriesByCatName('Cat2');
+    setCategories(data.categoryValues || []);
+  } catch (e) {
+    console.error('Error fetching categories:', e);
+  }
+};
 
-    return () => clearTimeout(timeoutId);
-  }, [search, category, perPage, currentPage]);
+const fetchProducts = async () => {
+  try {
+    const data: ProductResponse = await getProducts();
+    setAllProducts(data.items);
+  } catch (e) {
+    console.error('Error fetching products:', e);
+  }
+};
 
-  // Scroll to top on page change
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }, [currentPage]);
+// Filter products by search + category
+const filteredProducts = useMemo(() => {
+  let result = allProducts;
 
-  // Initial load
-  useEffect(() => {
-    fetchProducts(1);
-    // eslint-disable-next-line
-  }, []);
+  if (search) {
+    result = result.filter(item =>
+      item.itemName.toLowerCase().includes(search.toLowerCase())
+    );
+  }
 
-  // Handle search input key press
-  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      if (selectedSuggestionIndex >= 0 && suggestions[selectedSuggestionIndex]) {
-        // Select the highlighted suggestion
-        handleSuggestionClick(suggestions[selectedSuggestionIndex]);
-      } else {
-        // Perform search with current input
-        setShowSuggestions(false);
-        fetchProducts(1);
-      }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSelectedSuggestionIndex(prev => 
-        prev < suggestions.length - 1 ? prev + 1 : prev
-      );
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSelectedSuggestionIndex(prev => 
-        prev > 0 ? prev - 1 : -1
-      );
-    } else if (e.key === 'Escape') {
-      setShowSuggestions(false);
-      setSelectedSuggestionIndex(-1);
-    }
-  };
+  if (category) {
+    result = result.filter(item =>
+      item.stock?.[0]?.cat2 === category
+    );
+  }
 
-  // Handle suggestion click
-  const handleSuggestionClick = (suggestion: string) => {
-    setSearch(suggestion);
+  return result;
+}, [allProducts, search, category]);
+
+// Paginated visible products
+const products = useMemo(() => {
+  const start = (currentPage - 1) * DEFAULT_PER_PAGE;
+  return filteredProducts.slice(start, start + DEFAULT_PER_PAGE);
+}, [filteredProducts, currentPage]);
+
+// Reset page on search or category change
+useEffect(() => {
+  setCurrentPage(1);
+}, [search, category]);
+
+// Update total pages whenever filtered data changes
+useEffect(() => {
+  const total = Math.ceil(filteredProducts.length / DEFAULT_PER_PAGE);
+  setTotalPages(total || 1);
+}, [filteredProducts]);
+
+// Scroll to top on page change
+useEffect(() => {
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}, [currentPage]);
+
+// Extract item names for suggestions
+const allProductNames = useMemo(() => {
+  const filtered = category
+    ? allProducts.filter(item => item.stock?.[0]?.cat2 === category)
+    : allProducts;
+
+  return filtered.map(item => item.itemName);
+}, [allProducts, category]);
+
+// Generate autocomplete suggestions
+useEffect(() => {
+  const trimmed = search.trim().toLowerCase();
+
+  if (!trimmed) {
+    setSuggestions([]);
     setShowSuggestions(false);
     setSelectedSuggestionIndex(-1);
-    setCurrentPage(1);
-    fetchProducts(1); // immediately search for the selected product
-  };
+    return;
+  }
 
-  // Handle search input focus
-  const handleSearchFocus = () => {
-    if (search.trim().length > 0 && suggestions.length > 0) {
-      setShowSuggestions(true);
-    }
-  };
+  const handler = setTimeout(() => {
+    const matches = allProductNames
+      .filter(name => {
+        const lower = name.toLowerCase();
+        return lower === trimmed || lower.startsWith(trimmed);
+      })
+      .sort((a, b) => {
+        const aLower = a.toLowerCase();
+        const bLower = b.toLowerCase();
+        if (aLower === trimmed) return -1;
+        if (bLower === trimmed) return 1;
+        return aLower.localeCompare(bLower);
+      })
+      .slice(0, 5);
 
-  // Handle search input blur
-  const handleSearchBlur = () => {
-    // Delay hiding suggestions to allow for clicks
-    setTimeout(() => {
+    setSuggestions(matches);
+    setShowSuggestions(true);
+    setSelectedSuggestionIndex(-1);
+  }, 300); //Debounce delay
+
+  return () => clearTimeout(handler); //Cancel if user types again
+}, [search, allProductNames]);
+
+// Handle category selection
+const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  setCategory(e.target.value);
+};
+
+// Handle search input changes
+const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setSearch(e.target.value);
+};
+
+// Keyboard navigation for suggestions
+const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === 'Enter') {
+    if (selectedSuggestionIndex >= 0) {
+      handleSuggestionClick(suggestions[selectedSuggestionIndex]);
+    } else {
       setShowSuggestions(false);
-      setSelectedSuggestionIndex(-1);
-    }, 200);
-  };
+    }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    setSelectedSuggestionIndex(prev =>
+      prev < suggestions.length - 1 ? prev + 1 : prev
+    );
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    setSelectedSuggestionIndex(prev =>
+      prev > 0 ? prev - 1 : -1
+    );
+  } else if (e.key === 'Escape') {
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+  }
+};
 
-  // Handle category change
-  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setCategory(e.target.value);
-    setCurrentPage(1); // Reset to first page when category changes
-  };
+// Handle clicking on a suggestion
+const handleSuggestionClick = (suggestion: string) => {
+  setSearch(suggestion);
+  setShowSuggestions(false);
+  setSelectedSuggestionIndex(-1);
+  setCurrentPage(1);
+};
 
-  // Handle search input change
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearch(e.target.value);
-    setCurrentPage(1); // Reset to first page when search changes
-  };
+// Focus/Blur events for suggestions
+const handleSearchFocus = () => {
+  if (search.trim() && suggestions.length) {
+    setShowSuggestions(true);
+  }
+};
+
+const handleSearchBlur = () => {
+  setTimeout(() => {
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+  }, 200);
+};
 
   // Add-to-cart logic remains the same
   const handleAddToCart = useCallback((product: Item) => {
@@ -199,8 +215,6 @@ const Products = () => {
       unit: availableStock.cat5
     });
   }, [addItem]);
-
-  //const featuredProducts = productList.filter(product => product.featured);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -346,7 +360,7 @@ const Products = () => {
                 </svg>
               </button>
             )}
-            
+
             {/* Search Suggestions Dropdown */}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -383,7 +397,7 @@ const Products = () => {
             </select>
           </div>
           <button
-            onClick={() => fetchProducts(1)}
+            // onClick={() => fetchProducts()}
             className="bg-mithila-blue text-white px-6 sm:px-8 py-3 rounded-lg font-semibold shadow hover:bg-blue-800 transition-colors w-full sm:w-auto text-base sm:text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={loading}
             style={{ minWidth: 120 }}
@@ -489,10 +503,10 @@ const Products = () => {
       <section className="section-padding bg-gray-50">
         <div className="container-custom">
           {/* Results Counter */}
-          {!loading && search && products.length > 0 && (
+          {!loading && search && filteredProducts.length > 0 && (
             <div className="mb-6 text-center sm:text-left">
               <p className="text-gray-600">
-                {`Found ${products.length} product${products.length === 1 ? '' : 's'}`}
+                {`Found ${filteredProducts.length} product${products.length === 1 ? '' : 's'}`}
                 {search && ` matching "${search}"`}
                 {category && ` in ${category}`}
               </p>
@@ -512,58 +526,60 @@ const Products = () => {
             </div>
           ) : (
             <>
-            <motion.div
-              key={category}
-              variants={containerVariants}
-              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
-            >
-              {products.map((product) => (
-                <ProductCard key={product.itemId} product={product} onAddToCart={handleAddToCart} />
-              ))}
-            </motion.div>
-            {/* Pagination Controls */}
-            {!loading && totalPages > 1 && (
-              <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                  disabled={currentPage === 1}
-                  className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                {/* Sliding window of 3 page numbers */}
-                {(() => {
-                  let start = Math.max(1, currentPage - 1);
-                  let end = Math.min(totalPages, start + 2);
-                  // Adjust start if we're at the end
-                  start = Math.max(1, end - 2);
-                  const pages = [];
-                  for (let i = start; i <= end; i++) {
-                    pages.push(i);
-                  }
-                  return pages.map((page) => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-2 rounded font-semibold ${
-                        page === currentPage
+              <motion.div
+                key={category}
+                variants={containerVariants}
+                className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+              >
+                {products.map((product) => (
+                  <ProductCard key={product.itemId} product={product} onAddToCart={handleAddToCart} />
+                ))}
+              </motion.div>
+              {/* Pagination Controls */}
+              {!loading && totalPages > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-8 flex-wrap">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
+                  >
+                    Prev
+                  </button>
+                  {/* Sliding window of page numbers */}
+                  {(() => {
+                    const windowSize = 10; // Max window size here
+                    let start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+                    let end = Math.min(totalPages, start + windowSize - 1);
+
+                    // Re-adjust start if we're near the end
+                    start = Math.max(1, end - windowSize + 1);
+
+                    const pages = [];
+                    for (let i = start; i <= end; i++) {
+                      pages.push(i);
+                    }
+                    return pages.map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`px-3 py-2 rounded font-semibold ${page === currentPage
                           ? 'bg-mithila-blue text-white'
                           : 'bg-gray-100 text-gray-700 hover:bg-mithila-blue hover:text-white'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ));
-                })()}
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            )}
+                          }`}
+                      >
+                        {page}
+                      </button>
+                    ));
+                  })()}
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 rounded bg-gray-200 text-gray-700 font-semibold disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -576,7 +592,7 @@ const Products = () => {
             >
               <Tag className="text-gray-400 mx-auto mb-4" size={48} />
               <p className="text-xl text-gray-600">
-                {search || category 
+                {search || category
                   ? 'No products found matching your criteria. Try adjusting your search or category filter.'
                   : 'No products available at the moment.'
                 }
