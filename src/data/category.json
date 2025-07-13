@@ -1,0 +1,99 @@
+{
+    "categoryValues": [
+        {
+            "categoryValueId": 3,
+            "categoryValueName": "GROCERY",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 4,
+            "categoryValueName": "DAIRY & BEVERAGES",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 5,
+            "categoryValueName": "PACKAGED FOOD",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 6,
+            "categoryValueName": "FRUITS & VEGETABLES",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 7,
+            "categoryValueName": "BABY & KIDS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 8,
+            "categoryValueName": "BEAUTY & COSMETICS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 9,
+            "categoryValueName": "HOME & KITCHEN",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 10,
+            "categoryValueName": "PERSONAL CARE",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 11,
+            "categoryValueName": "FOOTWEAR NEEDS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 12,
+            "categoryValueName": "HOME UTILITY & ORGANISERS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 13,
+            "categoryValueName": "CLOTHING & ACCESSORIES",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 14,
+            "categoryValueName": "APPLIANCES",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 15,
+            "categoryValueName": "SCHOOL SUPPLIES",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 16,
+            "categoryValueName": "SPECIALS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        },
+        {
+            "categoryValueId": 1502,
+            "categoryValueName": "MOBILE & ELECTRONICS",
+            "catName": "Cat2",
+            "catStatus": "Y"
+        }
+    ],
+    "count": 15,
+    "total_records": 15,
+    "current_page": 1,
+    "per_page": 5000,
+    "total_pages": 1
+}
