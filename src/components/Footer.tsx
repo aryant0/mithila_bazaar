@@ -155,7 +155,7 @@ const Footer = () => {
                   href="mailto:mithilabazaar7@gmail.com"
                   className="text-gray-300 text-sm hover:text-mithila-orange transition-colors"
                 >
-                  mithilabazaar7@gmail.com
+                  sales@bazaarmithila.com
                 </a>
               </li>
             </ul>

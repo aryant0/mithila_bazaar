@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ArrowRight, Star, Users, MapPin, Phone, Mail, Eye, ShoppingBag, ChevronDown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 // Enhanced StoreGallery component
@@ -66,16 +66,10 @@ const StoreGallery = () => {
 };
 
 const Home = () => {
+  const navigate = useNavigate();
   const whatsappMessage = encodeURIComponent("Hi! I'm interested in learning more about Mithila Bazaar. Please share more details.");
   const emailSubject = encodeURIComponent("Inquiry about Mithila Bazaar");
   const emailBody = encodeURIComponent("Hi,\n\nI'm interested in learning more about Mithila Bazaar. Please provide more information.\n\nThank you!");
-
-  const scrollToGallery = () => {
-    const gallerySection = document.querySelector('#store-gallery');
-    if (gallerySection) {
-      gallerySection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
 
   const fadeInUp = {
     hidden: { opacity: 0, y: 60 },
@@ -187,37 +181,32 @@ const Home = () => {
                 </a>
               </motion.div>
               
+              {/* BUTTONS WITH HIGH Z-INDEX */}
               <motion.div 
                 variants={fadeInUp}
-                className="flex flex-col sm:flex-row gap-6"
+                className="flex flex-col sm:flex-row gap-6 mb-10 relative z-50"
               >
                 <motion.button
-                  onClick={scrollToGallery}
-                  className="flex items-center justify-center space-x-3 text-lg px-8 py-4 rounded-xl bg-mithila-blue text-white hover:bg-mithila-blue/90 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer"
-                  whileHover={{ 
-                    scale: 1.05,
-                    backgroundColor: "#1e3a8a",
-                  }}
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/products')}
+                  className="bg-mithila-blue hover:bg-mithila-blue/90 text-white px-8 py-4 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl cursor-pointer relative z-50"
+                  style={{ position: 'relative', zIndex: 999 }}
                 >
-                  <Eye size={24} className="animate-pulse" />
-                  <span>View Store Photos</span>
+                  <ShoppingBag size={20} />
+                  <span>Checkout Products</span>
                 </motion.button>
                 
-                <motion.a
-                  href={`https://wa.me/+917070848333?text=${whatsappMessage}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center space-x-3 text-lg px-8 py-4 rounded-xl bg-mithila-orange text-white hover:bg-mithila-orange/90 transition-all duration-300 shadow-lg hover:shadow-xl cursor-pointer"
-                  whileHover={{ 
-                    scale: 1.05,
-                    backgroundColor: "#f97316",
-                  }}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => window.open(`https://wa.me/+917070848333?text=${whatsappMessage}`, '_blank')}
+                  className="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg font-medium transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl cursor-pointer relative z-50"
+                  style={{ position: 'relative', zIndex: 999 }}
                 >
-                  <Phone size={24} className="animate-bounce" />
+                  <Phone size={20} />
                   <span>WhatsApp Us</span>
-                </motion.a>
+                </motion.button>
               </motion.div>
               
               {/* Floating products animation */}
@@ -330,7 +319,7 @@ const Home = () => {
       {/* Why Bihar Section */}
       <section className="section-padding bg-white">
         <div className="container-custom">
-          <motion.div
+          <motion.div 
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -344,16 +333,12 @@ const Home = () => {
             </p>
           </motion.div>
           
-          <motion.div
+          <motion.div 
             variants={staggerContainer}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
             className="grid grid-cols-1 md:grid-cols-3 gap-8"
           >
             <motion.div 
               variants={fadeInUp}
-              whileHover={{ y: -10 }}
               className="text-center p-8 bg-gradient-to-b from-white to-mithila-cream rounded-3xl shadow-lg border border-mithila-orange/20 hover:shadow-xl transition-all"
             >
               <div className="w-16 h-16 bg-mithila-blue/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -367,7 +352,6 @@ const Home = () => {
             
             <motion.div 
               variants={fadeInUp}
-              whileHover={{ y: -10 }}
               className="text-center p-8 bg-gradient-to-b from-white to-mithila-cream rounded-3xl shadow-lg border border-mithila-orange/20 hover:shadow-xl transition-all"
             >
               <div className="w-16 h-16 bg-mithila-orange/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -381,7 +365,6 @@ const Home = () => {
             
             <motion.div 
               variants={fadeInUp}
-              whileHover={{ y: -10 }}
               className="text-center p-8 bg-gradient-to-b from-white to-mithila-cream rounded-3xl shadow-lg border border-mithila-orange/20 hover:shadow-xl transition-all"
             >
               <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -397,15 +380,13 @@ const Home = () => {
       </section>
 
       {/* Explore Products CTA */}
-      <motion.section
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.8 }}
-        className="section-padding bg-gradient-to-r from-mithila-blue to-[#2a4a9d] text-white"
-      >
+      <section className="section-padding bg-gradient-to-r from-mithila-blue to-[#2a4a9d] text-white">
         <div className="container-custom text-center">
           <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
             className="absolute inset-0 opacity-10"
             style={{
               backgroundImage: "radial-gradient(#fff 1px, transparent 1px)",
@@ -413,70 +394,44 @@ const Home = () => {
             }}
           />
           
-          <motion.h2
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+          <motion.h2 
+            variants={fadeInUp}
             className="text-4xl font-bold mb-6"
           >
             Explore Our Products
           </motion.h2>
           
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex justify-center mb-8"
-          >
-            <div className="w-24 h-1 bg-mithila-orange rounded-full"></div>
-          </motion.div>
+          <div className="w-24 h-1 bg-mithila-orange rounded-full"></div>
           
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
+          <motion.p 
+            variants={fadeInUp}
             className="text-xl mb-8 text-blue-100 max-w-2xl mx-auto"
           >
             From fresh vegetables to household essentials, discover our wide range of 
             quality products at competitive prices.
           </motion.p>
           
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
+          <Link
+            to="/products"
+            className="inline-flex items-center bg-mithila-orange hover:bg-mithila-orange/90 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group shadow-lg hover:shadow-xl"
           >
-            <Link
-              to="/products"
-              className="inline-flex items-center bg-mithila-orange hover:bg-mithila-orange/90 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group shadow-lg hover:shadow-xl"
-            >
-              <span className="font-semibold">View Products</span>
-              <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20} />
-            </Link>
-          </motion.div>
+            <span className="font-semibold">View Products</span>
+            <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" size={20} />
+          </Link>
           
           <motion.div 
+            variants={staggerContainer}
             className="mt-12 flex justify-center gap-6"
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3 }}
           >
             {[...Array(5)].map((_, i) => (
               <motion.div
                 key={i}
                 className="bg-white/10 p-4 rounded-xl backdrop-blur-sm"
-                animate={{ 
-                  y: [0, -15, 0],
-                }}
-                transition={{
-                  duration: 3 + i,
-                  repeat: Infinity,
-                  delay: i * 0.3
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 + i * 0.1 }}
+                style={{
+                  animation: `float ${3 + i}s infinite ease-in-out`
                 }}
               >
                 <ShoppingBag className="text-white" size={28} />
@@ -484,47 +439,46 @@ const Home = () => {
             ))}
           </motion.div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Contact CTA */}
       <section className="section-padding bg-white">
         <div className="container-custom">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
             className="bg-gradient-to-br from-mithila-blue to-[#2a4a9d] rounded-3xl p-12 text-white text-center relative overflow-hidden"
           >
             {/* Decorative elements */}
-            <div className="absolute top-0 left-0 w-32 h-32 bg-mithila-orange/10 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-            <div className="absolute bottom-0 right-0 w-48 h-48 bg-mithila-orange/10 rounded-full transform translate-x-1/2 translate-y-1/2"></div>
+            <motion.div 
+              className="absolute top-0 left-0 w-32 h-32 bg-mithila-orange/10 rounded-full transform -translate-x-1/2 -translate-y-1/2"
+              variants={floatingAnimation}
+              animate="float"
+            />
+            <motion.div 
+              className="absolute bottom-0 right-0 w-48 h-48 bg-mithila-orange/10 rounded-full transform translate-x-1/2 translate-y-1/2"
+              variants={floatingAnimation}
+              animate="float"
+            />
             
-            <motion.h2
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
+            <motion.h2 
+              variants={fadeInUp}
               className="text-4xl font-bold mb-6 relative z-10"
             >
               Ready to Shop with Us?
             </motion.h2>
             
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.1 }}
+            <motion.p 
+              variants={fadeInUp}
               className="text-xl mb-8 text-blue-100 max-w-2xl mx-auto relative z-10"
             >
               Visit our store in Madhubani or contact us for more information about our products and services.
             </motion.p>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.15 }}
+            <motion.div 
+              variants={fadeInUp}
               className="mb-8"
             >
               <div className="flex items-center justify-center space-x-3 text-blue-100 mb-4">
@@ -545,36 +499,30 @@ const Home = () => {
             </motion.div>
             
             <motion.div 
+              variants={fadeInUp}
               className="flex flex-col sm:flex-row gap-4 justify-center relative z-10"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <motion.a
+              <a
                 href={`https://wa.me/+917070848333?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group cursor-pointer"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                className="inline-flex items-center bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group cursor-pointer transform hover:scale-105 active:scale-95"
               >
                 <Phone className="mr-2 animate-pulse" size={20} />
                 <span>WhatsApp Chat</span>
-              </motion.a>
+              </a>
               
-              <motion.div
+              <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                type="button"
+                onClick={() => navigate('/products')}
+                className="inline-flex items-center bg-mithila-orange hover:bg-mithila-orange/90 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group cursor-pointer transform hover:scale-105 active:scale-95 relative z-50"
+                style={{ position: 'relative', zIndex: 999 }}
               >
-                <Link
-                  to="/contact"
-                  className="inline-flex items-center bg-mithila-orange hover:bg-mithila-orange/90 text-white px-8 py-4 rounded-full font-medium transition-all duration-300 group cursor-pointer"
-                >
-                  <Mail className="mr-2 animate-bounce" size={20} />
-                  <span>Contact Form</span>
-                </Link>
-              </motion.div>
+                <Mail className="mr-2 animate-bounce" size={20} />
+                <span>Checkout Products</span>
+              </motion.button>
             </motion.div>
           </motion.div>
         </div>
@@ -583,7 +531,13 @@ const Home = () => {
       {/* Footer */}
       <footer className="py-12 bg-mithila-dark text-white">
         <div className="container-custom text-center">
-          <div className="flex justify-center mb-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="flex justify-center mb-6"
+          >
             <div className="flex items-center">
               <img 
                 src="/LOGOS_page-0002.png" 
@@ -595,15 +549,21 @@ const Home = () => {
                 <span className="text-orange-500"> BAZAAR</span>
               </div>
             </div>
-          </div>
+          </motion.div>
           
-          <p className="text-gray-400 mb-4">
+          <motion.p 
+            variants={fadeInUp}
+            className="text-gray-400 mb-4"
+          >
             Madhubani, Bihar | Since 2023
-          </p>
+          </motion.p>
           
-          <p className="text-gray-400">
+          <motion.p 
+            variants={fadeInUp}
+            className="text-gray-400"
+          >
             Your trusted local supermarket serving the Mithila community
-          </p>
+          </motion.p>
         </div>
       </footer>
     </div>

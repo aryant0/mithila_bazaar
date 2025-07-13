@@ -53,12 +53,12 @@ const Contact = () => {
     {
       icon: <Mail className="text-green-600" size={24} />,
       title: "Email",
-      details: ["mithilabazaar7@gmail.com", "support@mithilabazaar.com"]
+      details: ["mithilabazaar7@gmail.com", "sales@bazaarmithila.com"]
     },
     {
       icon: <Clock className="text-purple-600" size={24} />,
       title: "Business Hours",
-      details: ["Mon - Sun: 8:00 AM - 10:00 PM", "All 365 days"]
+      details: ["Everyday : 6:00 AM - 10:00 PM", "All 365 days"]
     }
   ];
 

@@ -29,12 +29,14 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize AOS
+    // Initialize AOS with better settings
     AOS.init({
-      duration: 1000,
-      easing: 'ease-in-out',
+      duration: 800,
+      easing: 'ease-out-cubic',
       once: true,
-      offset: 100,
+      offset: 50,
+      disable: 'mobile', // Disable on mobile to prevent issues
+      startEvent: 'DOMContentLoaded',
     });
 
     const timer = setTimeout(() => {
